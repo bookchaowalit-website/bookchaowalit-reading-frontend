@@ -19,6 +19,12 @@ See `README.md` for install and run instructions when present.
 - Not claimed as production-ready unless README and tests prove it.
 - Mobile smoke / emulator acceptance is separate and toolchain-dependent.
 
+## Current product truth
+
+This is a compact local reading queue for filtering one authored list by Book
+or Essay and searching title, summary, or category. Items are sample records;
+there is no book import, progress sync, recommendation engine, or account.
+
 ## Source README excerpt
 
 ```

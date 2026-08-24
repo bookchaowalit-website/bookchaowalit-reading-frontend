@@ -1,136 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-function Shell({
-  title,
-  subtitle,
-  badge = "Portfolio demo · local-only",
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  badge?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-100">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <header className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">{badge}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">{title}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">{subtitle}</p>
-        </header>
-        {children}
-        <footer className="mt-10 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800">
-          Honest demo: no multi-tenant backend. State (if any) stays in this browser.
-        </footer>
-      </div>
-    </div>
-  );
-}
-
-function Button({
-  children,
-  onClick,
-  variant = "primary",
-  disabled,
-  type = "button",
-  className = "",
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "danger";
-  disabled?: boolean;
-  type?: "button" | "submit";
-  className?: string;
-}) {
-  const base =
-    "inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50 " +
-    className;
-  const styles =
-    variant === "primary"
-      ? "bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
-      : variant === "secondary"
-        ? "bg-white text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
-        : variant === "danger"
-          ? "bg-red-600 text-white hover:bg-red-500"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900";
-  return (
-    <button type={type} disabled={disabled} onClick={onClick} className={`${base} ${styles}`}>
-      {children}
-    </button>
-  );
-}
-
-const inputClass =
-  "w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-950";
-
-function useLocalStorage<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(initial);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw != null) setValue(JSON.parse(raw) as T);
-    } catch {
-      /* ignore */
-    }
-    setReady(true);
-  }, [key]);
-  useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem(key, JSON.stringify(value));
-  }, [key, value, ready]);
-  return [value, setValue] as const;
-}
-
-function uid() {
-  return crypto.randomUUID();
-}
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-
-type Item = { id: string; title: string; category: string; summary: string; meta?: string };
-const ITEMS: Item[] = [{"id": "1", "title": "DDIA", "category": "Book", "summary": "Systems fundamentals.", "meta": "In progress"}];
-const CATS = ["Book", "Essay"];
+type ReadingItem = { id: string; title: string; category: "Book" | "Essay"; summary: string; meta: string; note: string };
+const ITEMS: ReadingItem[] = [
+  { id: "ddia", title: "Designing Data-Intensive Applications", category: "Book", summary: "Systems fundamentals.", meta: "In progress / 24%", note: "A shelf marker for the chapters that make systems feel less mysterious: boundaries, data, and the cost of a convenient default." },
+  { id: "working", title: "The Work of Art in the Age of Mechanical Reproduction", category: "Essay", summary: "Copies, aura, and attention.", meta: "Queued / 12 pages", note: "A short return to the question of what changes when a thing can travel farther than the room that made it." },
+  { id: "shape", title: "Shape Up", category: "Book", summary: "Appetite before task lists.", meta: "Finished / notes open", note: "A useful reminder that a plan is a boundary around a bet, not a longer list of instructions." },
+  { id: "small", title: "Small Is Beautiful", category: "Essay", summary: "Scale as a design decision.", meta: "Queued / 8 pages", note: "A compact prompt for asking whether the next layer creates leverage or merely creates somewhere else to look." },
+];
+const CATEGORIES = ["All", "Book", "Essay"] as const;
 
 export default function Home() {
-  const [q, setQ] = useState("");
-  const [cat, setCat] = useState("All");
-  const list = ITEMS.filter(
-    (i) =>
-      (cat === "All" || i.category === cat) &&
-      (i.title + i.summary + i.category).toLowerCase().includes(q.toLowerCase())
-  );
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("All");
+  const [selectedId, setSelectedId] = useState("ddia");
+  const visible = useMemo(() => ITEMS.filter((item) => (category === "All" || item.category === category) && `${item.title} ${item.summary} ${item.category}`.toLowerCase().includes(query.toLowerCase())), [category, query]);
+  const selected = ITEMS.find((item) => item.id === selectedId) ?? ITEMS[0];
+
+  useEffect(() => { if (visible.length && !visible.some((item) => item.id === selectedId)) setSelectedId(visible[0].id); }, [selectedId, visible]);
+
   return (
-    <Shell title="Reading List" subtitle="Books and essays queue.">
-      <div className="mb-4 flex flex-wrap gap-2">
-        <input className={`${inputClass} max-w-sm`} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-        {["All", ...CATS].map((c) => (
-          <Button key={c} variant={cat === c ? "primary" : "secondary"} onClick={() => setCat(c)}>
-            {c}
-          </Button>
-        ))}
+    <main className="reading-shell">
+      <div className="reading-frame">
+        <header className="reading-topbar"><a href="https://bookchaowalit.com" className="reading-mark" aria-label="Bookchaowalit home"><span>READ</span> / SHELF</a><span>OPEN QUEUE / LOCAL LIST</span><span>{ITEMS.length} PIECES INDEXED</span></header>
+        <section className="reading-intro"><div><h1>Keep a place<br /><em>for the next page.</em></h1><p>A small reading shelf for books and essays that are still becoming useful. Find the item, then give it the room to say one thing.</p></div><div className="reading-stamp" aria-hidden="true"><span>OPEN</span><b>{String(visible.length).padStart(2, "0")}</b><span>ON SHELF</span></div></section>
+
+        <section className="reading-desk" aria-label="Reading list">
+          <aside className="shelf-index"><div className="desk-head"><span>SHELF INDEX</span><span>{visible.length} FOUND</span></div><label className="reading-search"><span aria-hidden="true">/</span><span className="sr-only">Search reading list</span><input placeholder="Search the shelf" value={query} onChange={(event) => setQuery(event.target.value)} /></label><div className="category-tabs">{CATEGORIES.map((item) => <button type="button" key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)} aria-pressed={category === item}>{item}</button>)}</div><div className="shelf-list">{visible.length ? visible.map((item, index) => <button type="button" key={item.id} className={selected.id === item.id ? "shelf-row selected" : "shelf-row"} onClick={() => setSelectedId(item.id)} aria-pressed={selected.id === item.id}><span>{String(index + 1).padStart(2, "0")}</span><strong>{item.title}</strong><small>{item.category} / {item.meta}</small></button>) : <p className="empty-shelf">No page matches this search.</p>}</div></aside>
+          <article className="reading-sheet"><div className="desk-head"><span>OPEN PAGE / {selected.category.toUpperCase()}</span><span>{selected.meta.toUpperCase()}</span></div><div className="sheet-content"><span className="page-mark">{String(ITEMS.indexOf(selected) + 1).padStart(2, "0")}</span><h2>{selected.title}</h2><p className="sheet-summary">{selected.summary}</p><div className="sheet-note"><span className="field-label">MARGIN NOTE</span><p>{selected.note}</p></div><div className="sheet-foot"><span>AUTHORED SAMPLE LIST</span><span>NO IMPORT / NO SYNC</span></div></div></article>
+        </section>
+        <footer className="reading-footer"><span>BOOK / DEV TOOLS</span><span>SEARCH · SORT · OPEN</span></footer>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {list.map((i) => (
-          <article key={i.id} className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="text-xs uppercase tracking-wide text-zinc-500">{i.category}</div>
-            <h2 className="mt-1 font-medium">{i.title}</h2>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{i.summary}</p>
-            {i.meta ? <p className="mt-3 text-xs text-zinc-500">{i.meta}</p> : null}
-          </article>
-        ))}
-      </div>
-    </Shell>
+    </main>
   );
 }
